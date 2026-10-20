@@ -1,0 +1,9 @@
+node_modules
+chat.db
+chat.db-wal
+chat.db-shm
+uploads
+test
+.git
+*.bat
+README.md

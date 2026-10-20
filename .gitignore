@@ -1,0 +1,7 @@
+.vercel
+.env*
+node_modules/
+uploads/
+chat.db
+chat.db-shm
+chat.db-wal
