@@ -143,6 +143,7 @@
 
           case 'register':
           case 'login':
+          case 'change-password':
             call('auth', { method: 'POST', body: Object.assign({ action: event }, payload) })
               .then((d) => (cb ? cb(d) : null))
               .catch(() => fail());

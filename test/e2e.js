@@ -434,6 +434,49 @@ async function main() {
   ).json();
   check('REST typing heartbeat works', restTyping.ok === true);
 
+  /* --- Settings: change password --- */
+  const patty = await emitAck(a2, 'register', { username: 'Patty', password: 'cheese111', confirm: 'cheese111' });
+  check('settings: register account for password tests', patty.ok === true && typeof patty.token === 'string');
+
+  const cpBadToken = await emitAck(a2, 'change-password', { token: 'nope', current: 'cheese111', next: 'newsecret1', confirm: 'newsecret1' });
+  check('settings: change password rejects bad session', cpBadToken.ok === false);
+
+  const cpWrong = await emitAck(a2, 'change-password', { token: patty.token, current: 'wrongpw', next: 'newsecret1', confirm: 'newsecret1' });
+  check('settings: change password rejects wrong current', cpWrong.ok === false && cpWrong.error === 'Current password is incorrect.');
+
+  const cpShort = await emitAck(a2, 'change-password', { token: patty.token, current: 'cheese111', next: 'abc', confirm: 'abc' });
+  check('settings: change password rejects short new password', cpShort.ok === false && cpShort.error === 'Password must be at least 6 characters.');
+
+  const cpMismatch = await emitAck(a2, 'change-password', { token: patty.token, current: 'cheese111', next: 'newsecret1', confirm: 'otherpass1' });
+  check('settings: change password rejects confirmation mismatch', cpMismatch.ok === false && cpMismatch.error === 'Passwords do not match.');
+
+  const cpOk = await emitAck(a2, 'change-password', { token: patty.token, current: 'cheese111', next: 'newsecret1', confirm: 'newsecret1' });
+  check('settings: change password succeeds', cpOk.ok === true);
+
+  const oldLogin = await emitAck(b2, 'login', { username: 'Patty', password: 'cheese111' });
+  check('settings: old password no longer works', oldLogin.ok === false);
+
+  const newLogin = await emitAck(b2, 'login', { username: 'Patty', password: 'newsecret1' });
+  check('settings: new password works', newLogin.ok === true && typeof newLogin.token === 'string');
+
+  const restCp = await (
+    await fetch(`${URL}/api/auth`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({ action: 'change-password', token: newLogin.token, current: 'newsecret1', next: 'finalpass1', confirm: 'finalpass1' })
+    })
+  ).json();
+  check('REST change password works', restCp.ok === true);
+
+  const restCpLogin = await (
+    await fetch(`${URL}/api/auth`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({ action: 'login', username: 'Patty', password: 'finalpass1' })
+    })
+  ).json();
+  check('REST login after password change works', restCpLogin.ok === true);
+
   await stopServer();
   cleanup();
 

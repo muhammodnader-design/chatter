@@ -9,6 +9,12 @@
 <body>
   <!-- Welcome / auth screen -->
   <section id="welcome" class="screen active">
+    <button class="icon-btn settings-open settings-float" type="button" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
     <form id="join-form" class="card" autocomplete="off">
       <div class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -89,6 +95,12 @@
           <h2 id="room-title"># General</h2>
           <span id="room-sub" class="subtle">0 online</span>
         </div>
+        <button class="icon-btn settings-open header-settings" type="button" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
       </header>
 
       <div id="messages" class="messages"></div>
@@ -111,6 +123,85 @@
       </form>
     </main>
   </section>
+
+  <!-- Settings modal -->
+  <div id="settings-overlay" class="settings-overlay" hidden>
+    <div class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="settings-head">
+        <h3 id="settings-title">Settings</h3>
+        <button id="settings-close" class="icon-btn" type="button" title="Close" aria-label="Close">&times;</button>
+      </div>
+      <div class="settings-body">
+
+        <section class="set-section">
+          <div class="set-title">Account</div>
+          <div class="set-account-row">
+            <span id="set-avatar" class="avatar">?</span>
+            <div>
+              <div id="set-name" class="set-account-name">Not signed in</div>
+              <div id="set-kind" class="subtle"></div>
+            </div>
+          </div>
+
+          <div id="set-pw-block" class="set-fields" hidden>
+            <label for="set-pw-current">Current password</label>
+            <input id="set-pw-current" type="password" maxlength="100" autocomplete="current-password" placeholder="••••••••" />
+            <label for="set-pw-new">New password</label>
+            <input id="set-pw-new" type="password" maxlength="100" autocomplete="new-password" placeholder="at least 6 characters" />
+            <label for="set-pw-confirm">Confirm new password</label>
+            <input id="set-pw-confirm" type="password" maxlength="100" autocomplete="new-password" placeholder="••••••••" />
+            <div class="set-actions">
+              <button id="set-pw-save" class="btn-small" type="button">Change password</button>
+            </div>
+            <p id="set-pw-msg" class="set-msg" role="status"></p>
+          </div>
+
+          <p id="set-guest-note" class="subtle set-note" hidden>Chatting as a guest — sign up for an account to keep your name and set a password.</p>
+
+          <button id="set-logout" class="btn-danger" type="button" hidden>Log out</button>
+        </section>
+
+        <section class="set-section">
+          <div class="set-title">Appearance</div>
+          <div class="set-row">
+            <span>Theme</span>
+            <div class="seg" id="set-theme">
+              <button type="button" data-val="dark">Dark</button>
+              <button type="button" data-val="light">Light</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <span>Text size</span>
+            <div class="seg" id="set-size">
+              <button type="button" data-val="100">Default</button>
+              <button type="button" data-val="112">Larger</button>
+              <button type="button" data-val="125">Largest</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-section">
+          <div class="set-title">Chat</div>
+          <label class="set-toggle">
+            <span>Enter sends message</span>
+            <input type="checkbox" id="set-enter" />
+            <i aria-hidden="true"></i>
+          </label>
+          <label class="set-toggle">
+            <span>Show join/leave messages</span>
+            <input type="checkbox" id="set-system" />
+            <i aria-hidden="true"></i>
+          </label>
+          <label class="set-toggle">
+            <span>Sound on new messages</span>
+            <input type="checkbox" id="set-sound" />
+            <i aria-hidden="true"></i>
+          </label>
+        </section>
+
+      </div>
+    </div>
+  </div>
 
   <script src="transport.js"></script>
   <script src="app.js"></script>

@@ -77,6 +77,11 @@ io.on('connection', (socket) => {
   );
 
   socket.on(
+    'change-password',
+    wrapped(async (payload, cb) => respond(cb, await actions.changePassword(payload || {})))
+  );
+
+  socket.on(
     'get-rooms',
     wrapped(async (a, b) => {
       const cb = typeof a === 'function' ? a : b;

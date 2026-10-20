@@ -14,6 +14,7 @@ The frontend detects the mode automatically via `GET /api/capabilities` and pick
 - Realtime messages, presence, typing indicators (events locally, polling on Vercel)
 - File attachments: images inline, other files as chips (4 MB cap, extension whitelist)
 - Edit/delete your own messages, `(edited)` tag
+- Settings tab: dark/light theme, text size, enter-to-send, join/leave messages, sound on new messages, change password, logout
 - Message history survives restarts (SQLite/Turso)
 - Responsive UI: mobile drawer, safe-area insets, 44px touch targets
 
@@ -39,12 +40,12 @@ Requires Node 22+ (uses the built-in `node:sqlite`). Data lives in `chat.db`; up
 test.bat
 ```
 
-Runs four suites (117 checks):
+Runs four suites (128 checks):
 
 | Suite | What it covers |
 |---|---|
-| `test/e2e.js` | Full socket flow + REST API parity (87) |
-| `test/poll-transport.js` | Polling client against a live server (17) |
+| `test/e2e.js` | Full socket flow + REST API parity (97) |
+| `test/poll-transport.js` | Polling client against a live server (18) |
 | `test/smoke.js` | Static assets + capabilities endpoint (10) |
 | `test/vercel-mode.js` | `VERCEL=1` mode detection (3) |
 

@@ -10,9 +10,9 @@ let localDb = null;
 let remoteClient = null;
 
 if (!isRemote) {
-  const dbPath = process.env.VERCEL
-    ? path.join('/tmp', 'chat.db')
-    : process.env.CHAT_DB || path.join(__dirname, 'chat.db');
+  const dbPath =
+    process.env.CHAT_DB ||
+    (process.env.VERCEL ? path.join('/tmp', 'chat.db') : path.join(__dirname, 'chat.db'));
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   const { DatabaseSync } = require('node:sqlite');
   try {
@@ -190,6 +190,10 @@ async function deleteSession(token) {
   if (token) await run('DELETE FROM sessions WHERE token = ?', [token]);
 }
 
+async function updatePassword(username, password) {
+  await run('UPDATE users SET pass = ? WHERE username = ?', [hashPassword(password), username]);
+}
+
 async function ensureRoom(name) {
   await run('INSERT OR IGNORE INTO rooms (name, created_at) VALUES (?, ?)', [name, Date.now()]);
 }
@@ -307,6 +311,7 @@ module.exports = {
   createSession,
   getSession,
   deleteSession,
+  updatePassword,
   ensureRoom,
   listRooms,
   isDmRoom,

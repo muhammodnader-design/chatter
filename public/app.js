@@ -58,6 +58,57 @@ const remoteTyping = new Map();
 
 nameInput.value = localStorage.getItem('chatter.username') || '';
 
+/* ---------- Preferences ---------- */
+
+const prefs = {
+  theme: localStorage.getItem('chatter.theme') || 'dark',
+  size: localStorage.getItem('chatter.size') || '100',
+  enterSend: localStorage.getItem('chatter.enterSend') !== '0',
+  showSystem: localStorage.getItem('chatter.showSystem') !== '0',
+  sound: localStorage.getItem('chatter.sound') === '1'
+};
+
+function savePref(key, value) {
+  prefs[key] = value;
+  localStorage.setItem('chatter.' + key, typeof value === 'boolean' ? (value ? '1' : '0') : value);
+}
+
+function applyPrefs() {
+  document.documentElement.dataset.theme = prefs.theme;
+  document.documentElement.style.fontSize = prefs.size + '%';
+}
+applyPrefs();
+
+let audioCtx = null;
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    const t = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.06, t + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  } catch {}
+}
+
+let lastSeenId = 0;
+
+function trackMessage(msg) {
+  if (typeof msg.id !== 'number' || msg.id <= lastSeenId) return;
+  lastSeenId = msg.id;
+  if (prefs.sound && !msg.system && msg.username !== state.username) beep();
+}
+
 /* ---------- Helpers ---------- */
 
 function hashHue(str) {
@@ -285,7 +336,11 @@ function enterChat(res) {
 
   messagesEl.innerHTML = '';
   if (!res.history.length) showEmpty();
-  res.history.forEach(addMessage);
+  lastSeenId = 0;
+  res.history.forEach((m) => {
+    if (typeof m.id === 'number' && m.id > lastSeenId) lastSeenId = m.id;
+    addMessage(m);
+  });
 
   updateRoomHeader(res.room, res.users.length);
   renderMembers(res.users);
@@ -451,6 +506,7 @@ on('message-deleted', ({ id }) => {
 
 function addMessage(msg) {
   if (msg.system) {
+    if (!prefs.showSystem) return;
     addSystemLine(`${msg.text} · ${timeOf(msg.time)}`);
     return;
   }
@@ -514,7 +570,10 @@ function scrollDown() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-on('message', addMessage);
+on('message', (msg) => {
+  trackMessage(msg);
+  addMessage(msg);
+});
 
 on('forced-rename', ({ username, reason }) => {
   state.username = username;
@@ -690,7 +749,13 @@ msgInput.addEventListener('input', () => {
 });
 
 msgInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key !== 'Enter') return;
+  if (prefs.enterSend && !e.shiftKey) {
+    e.preventDefault();
+    composer.requestSubmit();
+    return;
+  }
+  if (!prefs.enterSend && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
     composer.requestSubmit();
   }
@@ -728,6 +793,130 @@ messagesEl.addEventListener('drop', (e) => {
   if (files && files.length) uploadAndSend(files[0]);
 });
 
+/* ---------- Settings ---------- */
+
+const settingsOverlay = $('settings-overlay');
+const setAvatar = $('set-avatar');
+const setNameEl = $('set-name');
+const setKind = $('set-kind');
+const setPwBlock = $('set-pw-block');
+const setGuestNote = $('set-guest-note');
+const setLogout = $('set-logout');
+const setPwCurrent = $('set-pw-current');
+const setPwNew = $('set-pw-new');
+const setPwConfirm = $('set-pw-confirm');
+const setPwSave = $('set-pw-save');
+const setPwMsg = $('set-pw-msg');
+const setThemeSeg = $('set-theme');
+const setSizeSeg = $('set-size');
+const setEnter = $('set-enter');
+const setSystem = $('set-system');
+const setSound = $('set-sound');
+
+function openSettings() {
+  const hasUser = Boolean(state.username);
+  const isAccount = hasUser && !state.guest && Boolean(state.token);
+  setNameEl.textContent = hasUser ? state.username : 'Not signed in';
+  setKind.textContent = hasUser ? (state.guest ? 'Guest' : 'Account') : '';
+  if (hasUser) fillAvatar(setAvatar, state.username);
+  else {
+    setAvatar.textContent = '?';
+    setAvatar.style.background = 'var(--panel-2)';
+  }
+  setPwBlock.hidden = !isAccount;
+  setGuestNote.hidden = !hasUser || isAccount;
+  setLogout.hidden = !hasUser;
+  setLogout.textContent = state.guest ? 'Leave' : 'Log out';
+  setPwMsg.textContent = '';
+  setPwMsg.classList.remove('ok');
+  settingsOverlay.hidden = false;
+}
+
+function closeSettings() {
+  settingsOverlay.hidden = true;
+  setPwCurrent.value = '';
+  setPwNew.value = '';
+  setPwConfirm.value = '';
+}
+
+document.querySelectorAll('.settings-open').forEach((btn) => btn.addEventListener('click', openSettings));
+$('settings-close').addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+function syncSeg(el, val) {
+  [...el.children].forEach((c) => c.classList.toggle('active', c.dataset.val === val));
+}
+
+function wireSeg(el, key) {
+  el.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-val]');
+    if (!btn) return;
+    savePref(key, btn.dataset.val);
+    syncSeg(el, btn.dataset.val);
+    applyPrefs();
+  });
+}
+
+syncSeg(setThemeSeg, prefs.theme);
+syncSeg(setSizeSeg, prefs.size);
+wireSeg(setThemeSeg, 'theme');
+wireSeg(setSizeSeg, 'size');
+
+setEnter.checked = prefs.enterSend;
+setSystem.checked = prefs.showSystem;
+setSound.checked = prefs.sound;
+setEnter.addEventListener('change', () => savePref('enterSend', setEnter.checked));
+setSystem.addEventListener('change', () => savePref('showSystem', setSystem.checked));
+setSound.addEventListener('change', () => savePref('sound', setSound.checked));
+
+setPwSave.addEventListener('click', () => {
+  setPwMsg.classList.remove('ok');
+  setPwMsg.textContent = '';
+  if (!socket) {
+    setPwMsg.textContent = 'Still connecting — try again in a moment.';
+    return;
+  }
+  const current = setPwCurrent.value;
+  const next = setPwNew.value;
+  const confirmPw = setPwConfirm.value;
+  if (!current || !next) {
+    setPwMsg.textContent = 'Enter your current and new password.';
+    return;
+  }
+  if (next.length < 6) {
+    setPwMsg.textContent = 'Password must be at least 6 characters.';
+    return;
+  }
+  if (next !== confirmPw) {
+    setPwMsg.textContent = 'Passwords do not match.';
+    return;
+  }
+  setPwSave.disabled = true;
+  socket.emit('change-password', { token: state.token, current, next, confirm: confirmPw }, (res) => {
+    setPwSave.disabled = false;
+    if (!res || !res.ok) {
+      setPwMsg.textContent = (res && res.error) || 'Request failed.';
+      return;
+    }
+    setPwCurrent.value = '';
+    setPwNew.value = '';
+    setPwConfirm.value = '';
+    setPwMsg.textContent = 'Password changed.';
+    setPwMsg.classList.add('ok');
+  });
+});
+
+[setPwCurrent, setPwNew, setPwConfirm].forEach((input) => {
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setPwSave.click();
+    }
+  });
+});
+
 /* ---------- Misc ---------- */
 
 function setSidebar(open) {
@@ -735,9 +924,9 @@ function setSidebar(open) {
   backdrop.hidden = !open;
 }
 
-leaveBtn.addEventListener('click', () => {
+function doLeave() {
   const token = localStorage.getItem('chatter.token');
-  if (token) {
+  if (token && socket) {
     socket.emit('logout', { token }, () => {
       clearSession();
       location.reload();
@@ -745,12 +934,17 @@ leaveBtn.addEventListener('click', () => {
   } else {
     location.reload();
   }
-});
+}
+
+leaveBtn.addEventListener('click', doLeave);
+setLogout.addEventListener('click', doLeave);
 
 menuBtn.addEventListener('click', () => setSidebar(!sidebar.classList.contains('open')));
 backdrop.addEventListener('click', () => setSidebar(false));
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') setSidebar(false);
+  if (e.key !== 'Escape') return;
+  if (!settingsOverlay.hidden) closeSettings();
+  else setSidebar(false);
 });
 
 on('disconnect', () => {

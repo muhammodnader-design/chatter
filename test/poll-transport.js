@@ -165,6 +165,11 @@ async function main() {
   const authBad = await new Promise((r) => t1.emit('auth', { token: 'not-a-real-token' }, r));
   check('poll: invalid token rejected', authBad.ok === false);
 
+  const cpBad = await new Promise((r) =>
+    t1.emit('change-password', { token: reg.token, current: 'wrong-pw', next: 'brandnew1', confirm: 'brandnew1' }, r)
+  );
+  check('poll: change-password rejects wrong current', cpBad.ok === false && cpBad.error === 'Current password is incorrect.');
+
   const out = await new Promise((r) => t1.emit('logout', { token: reg.token }, r));
   check('poll: logout acks ok', out.ok === true);
 
