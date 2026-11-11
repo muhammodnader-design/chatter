@@ -55,6 +55,8 @@ let state = { username: '', room: '', guest: true, token: null, dmWith: null };
 let typingFlagOn = false;
 let typingFlagTimer = null;
 const remoteTyping = new Map();
+let presenceHues = {};
+let lastPresenceUsers = [];
 
 nameInput.value = localStorage.getItem('chatter.username') || '';
 
@@ -121,9 +123,10 @@ function initials(name) {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }
 
-function fillAvatar(el, name) {
+function fillAvatar(el, name, hue) {
   el.textContent = initials(name);
-  el.style.background = `hsl(${hashHue(name)}, 58%, 46%)`;
+  const h = Number.isInteger(hue) ? hue : hashHue(name);
+  el.style.background = `hsl(${h}, 58%, 46%)`;
 }
 
 function timeOf(t) {
@@ -342,6 +345,8 @@ function enterChat(res) {
     addMessage(m);
   });
 
+  presenceHues = res.hues || {};
+  lastPresenceUsers = res.users;
   updateRoomHeader(res.room, res.users.length);
   renderMembers(res.users);
   socket.emit('get-rooms', renderRoomList);
@@ -540,7 +545,7 @@ function addMessage(msg) {
 
   const avatar = document.createElement('span');
   avatar.className = 'avatar';
-  fillAvatar(avatar, msg.username);
+  fillAvatar(avatar, msg.username, msg.hue);
 
   const wrap = document.createElement('div');
   wrap.className = 'bubble-wrap';
@@ -661,8 +666,10 @@ addDmBtn.addEventListener('click', () => {
 
 /* ---------- Presence ---------- */
 
-on('presence', ({ room, users }) => {
+on('presence', ({ room, users, hues }) => {
   if (room !== state.room) return;
+  lastPresenceUsers = users;
+  presenceHues = hues || {};
   renderMembers(users);
   updateRoomHeader(room, users.length);
   socket.emit('get-rooms', renderRoomList);
@@ -679,13 +686,13 @@ function renderMembers(users) {
     status.className = 'status';
     const avatar = document.createElement('span');
     avatar.className = 'avatar';
-    fillAvatar(avatar, name);
+    fillAvatar(avatar, name, presenceHues[name]);
     const label = document.createElement('span');
     label.textContent = self ? `${name} (you)` : name;
     li.append(status, avatar, label);
     if (!self) {
-      li.title = `Message ${name}`;
-      li.addEventListener('click', () => openDm(name));
+      li.title = `View ${name}'s profile`;
+      li.addEventListener('click', () => openProfile(name));
     }
     memberList.appendChild(li);
   });
@@ -791,6 +798,127 @@ messagesEl.addEventListener('drop', (e) => {
   messagesEl.classList.remove('dragover');
   const files = e.dataTransfer && e.dataTransfer.files;
   if (files && files.length) uploadAndSend(files[0]);
+});
+
+/* ---------- Profile ---------- */
+
+const profileOverlay = $('profile-overlay');
+const profileName = $('profile-name');
+const profileKind = $('profile-kind');
+const profileAvatarEl = $('profile-avatar');
+const profileBio = $('profile-bio');
+const profileGuestNote = $('profile-guest-note');
+const profileEdit = $('profile-edit');
+const profileBioInput = $('profile-bio-input');
+const profileHue = $('profile-hue');
+const profileHuePreview = $('profile-hue-preview');
+const profileSave = $('profile-save');
+const profileMsg = $('profile-msg');
+const profileDm = $('profile-dm');
+
+let viewingProfile = null;
+
+function huePreview(h) {
+  profileHuePreview.style.background = `hsl(${h}, 58%, 46%)`;
+}
+
+function showBio(text) {
+  if (text) {
+    profileBio.textContent = text;
+    profileBio.classList.remove('empty');
+  } else {
+    profileBio.textContent = 'No bio yet.';
+    profileBio.classList.add('empty');
+  }
+}
+
+function openProfile(username) {
+  if (!username || !socket) return;
+  viewingProfile = null;
+  profileMsg.textContent = '';
+  profileMsg.classList.remove('ok');
+  profileEdit.hidden = true;
+  profileGuestNote.hidden = true;
+  profileDm.hidden = true;
+  profileAvatarEl.textContent = '?';
+  profileName.textContent = 'Loading…';
+  profileKind.textContent = '';
+  profileBio.textContent = '…';
+  profileBio.classList.add('empty');
+  profileOverlay.hidden = false;
+  socket.emit('get-profile', { username }, (res) => {
+    if (!res || !res.ok || profileOverlay.hidden) return;
+    const mine = res.username === state.username;
+    const editable = mine && res.isAccount && Boolean(state.token);
+    viewingProfile = { username: res.username, mine, isAccount: res.isAccount };
+    profileName.textContent = res.username;
+    profileKind.textContent = res.isAccount ? 'Account' : 'Guest';
+    fillAvatar(profileAvatarEl, res.username, res.hue);
+    showBio(res.bio);
+    if (editable) {
+      profileEdit.hidden = false;
+      profileBioInput.value = res.bio || '';
+      const h = Number.isInteger(res.hue) ? res.hue : 210;
+      profileHue.value = String(h);
+      huePreview(h);
+    } else if (mine) {
+      profileGuestNote.hidden = false;
+    }
+    if (!mine) {
+      profileDm.hidden = false;
+      profileDm.textContent = `Message @${res.username}`;
+    }
+  });
+}
+
+function closeProfile() {
+  profileOverlay.hidden = true;
+  viewingProfile = null;
+}
+
+$('profile-close').addEventListener('click', closeProfile);
+profileOverlay.addEventListener('click', (e) => {
+  if (e.target === profileOverlay) closeProfile();
+});
+
+profileHue.addEventListener('input', () => huePreview(Number(profileHue.value)));
+
+profileSave.addEventListener('click', () => {
+  profileMsg.classList.remove('ok');
+  profileMsg.textContent = '';
+  if (!socket || !state.token) {
+    profileMsg.textContent = 'Not logged in.';
+    return;
+  }
+  const bio = profileBioInput.value;
+  const hue = Number(profileHue.value);
+  profileSave.disabled = true;
+  socket.emit('update-profile', { token: state.token, bio, hue }, (res) => {
+    profileSave.disabled = false;
+    if (!res || !res.ok) {
+      profileMsg.textContent = (res && res.error) || 'Request failed.';
+      return;
+    }
+    profileMsg.textContent = 'Profile saved.';
+    profileMsg.classList.add('ok');
+    fillAvatar(profileAvatarEl, state.username, res.hue);
+    fillAvatar(meAvatar, state.username, res.hue);
+    presenceHues[state.username] = res.hue;
+    if (lastPresenceUsers.length) renderMembers(lastPresenceUsers);
+    showBio(res.bio);
+  });
+});
+
+profileDm.addEventListener('click', () => {
+  if (!viewingProfile) return;
+  const withUser = viewingProfile.username;
+  closeProfile();
+  openDm(withUser);
+});
+
+document.querySelector('.side-me').addEventListener('click', (e) => {
+  if (e.target.closest('#leave')) return;
+  if (state.username) openProfile(state.username);
 });
 
 /* ---------- Settings ---------- */
@@ -943,7 +1071,8 @@ menuBtn.addEventListener('click', () => setSidebar(!sidebar.classList.contains('
 backdrop.addEventListener('click', () => setSidebar(false));
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!settingsOverlay.hidden) closeSettings();
+  if (!profileOverlay.hidden) closeProfile();
+  else if (!settingsOverlay.hidden) closeSettings();
   else setSidebar(false);
 });
 

@@ -170,6 +170,25 @@ async function main() {
   );
   check('poll: change-password rejects wrong current', cpBad.ok === false && cpBad.error === 'Current password is incorrect.');
 
+  const profUp = await new Promise((r) =>
+    t1.emit('update-profile', { token: reg.token, bio: 'Poller bio', hue: 42 }, r)
+  );
+  check('poll: update-profile acks ok', profUp.ok === true && profUp.bio === 'Poller bio' && profUp.hue === 42);
+
+  const profGet = await new Promise((r) => t1.emit('get-profile', { username: 'Poller' }, r));
+  check('poll: get-profile returns saved bio', profGet.ok === true && profGet.bio === 'Poller bio' && profGet.hue === 42);
+
+  t1.emit('message', { text: 'hue msg' });
+  check(
+    'poll: message carries account hue',
+    await waitFor(() => ev2.messages.some((m) => m.text === 'hue msg' && m.hue === 42))
+  );
+
+  check(
+    'poll: presence carries hues map',
+    await waitFor(() => ev2.presence.some((p) => p.hues && p.hues.Poller === 42))
+  );
+
   const out = await new Promise((r) => t1.emit('logout', { token: reg.token }, r));
   check('poll: logout acks ok', out.ok === true);
 

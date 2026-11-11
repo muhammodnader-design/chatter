@@ -100,7 +100,7 @@
         for (const id of data.deletes || []) {
           bus.emitLocal('message-deleted', { id, room: state.room });
         }
-        bus.emitLocal('presence', { room: state.room, users: data.users || [] });
+        bus.emitLocal('presence', { room: state.room, users: data.users || [], hues: data.hues || {} });
         applyTyping((data.typing || []).filter((u) => u !== state.username));
       } catch {
         markOffline();
@@ -158,6 +158,18 @@
           case 'logout':
             call('auth', { method: 'POST', body: { action: 'logout', token: payload && payload.token } })
               .then(() => cb && cb({ ok: true }))
+              .catch(() => fail());
+            break;
+
+          case 'get-profile':
+            call('profile', { query: { username: payload && payload.username } })
+              .then((d) => (cb ? cb(d) : null))
+              .catch(() => cb && cb({ ok: false, error: 'Profile not found.' }));
+            break;
+
+          case 'update-profile':
+            call('profile', { method: 'POST', body: payload })
+              .then((d) => (cb ? cb(d) : null))
               .catch(() => fail());
             break;
 

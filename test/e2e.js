@@ -477,6 +477,49 @@ async function main() {
   ).json();
   check('REST login after password change works', restCpLogin.ok === true);
 
+  /* --- Profiles --- */
+  await emitAck(a2, 'join', { token: reg1.token, room: 'General' });
+
+  const profAccount = await emitAck(a2, 'get-profile', { username: 'Alice' });
+  check('profile: account profile reads back', profAccount.ok === true && profAccount.isAccount === true && profAccount.bio === '' && profAccount.hue === null);
+
+  const profGuest = await emitAck(a2, 'get-profile', { username: 'Dave' });
+  check('profile: guest profile is not an account', profGuest.ok === true && profGuest.isAccount === false && profGuest.bio === '');
+
+  const profNoToken = await emitAck(a2, 'update-profile', { bio: 'sneaky', hue: 10 });
+  check('profile: update without token rejected', profNoToken.ok === false && profNoToken.error === 'Profile update requires an account — log in first.');
+
+  const profBadHue = await emitAck(a2, 'update-profile', { token: reg1.token, bio: 'x', hue: 999 });
+  check('profile: out-of-range hue rejected', profBadHue.ok === false && profBadHue.error === 'Pick a color between 0 and 359.');
+
+  const profLongBio = await emitAck(a2, 'update-profile', { token: reg1.token, bio: 'x'.repeat(121), hue: 10 });
+  check('profile: overlong bio rejected', profLongBio.ok === false && profLongBio.error === 'Bio must be 120 characters or fewer.');
+
+  const profSave = await emitAck(a2, 'update-profile', { token: reg1.token, bio: 'Alice here', hue: 210 });
+  check('profile: update succeeds', profSave.ok === true && profSave.bio === 'Alice here' && profSave.hue === 210);
+
+  const profAgain = await emitAck(a2, 'get-profile', { username: 'Alice' });
+  check('profile: update persists', profAgain.ok === true && profAgain.bio === 'Alice here' && profAgain.hue === 210);
+
+  const hueSeen = await new Promise((r) => {
+    const h = (m) => { if (m.text === 'hue check') { a2.off('message', h); r(m); } };
+    a2.on('message', h);
+    a2.emit('message', 'hue check');
+  });
+  check('profile: message carries account hue', hueSeen.hue === 210);
+
+  const restProf = await (await fetch(`${URL}/api/profile?username=Alice`)).json();
+  check('REST get profile works', restProf.ok === true && restProf.bio === 'Alice here' && restProf.hue === 210);
+
+  const restProfSave = await (
+    await fetch(`${URL}/api/profile`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({ token: reg1.token, bio: 'Alice here', hue: 300 })
+    })
+  ).json();
+  check('REST update profile works', restProfSave.ok === true && restProfSave.hue === 300);
+
   /* --- Rate limiting: message flood --- */
   await emitAck(a2, 'join', { token: reg1.token, room: 'General' });
   const floodSeen = [];

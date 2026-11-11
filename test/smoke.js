@@ -31,6 +31,7 @@ async function main() {
   results.push(['index serves', idx.status === 200]);
   results.push(['index references transport.js', idx.text.includes('transport.js')]);
   results.push(['index has no static socket.io tag', !idx.text.includes('/socket.io/socket.io.js')]);
+  results.push(['index has profile modal markup', idx.text.includes('profile-overlay')]);
   const files = ['/transport.js', '/app.js', '/style.css', '/socket.io/socket.io.js'];
   for (const f of files) {
     const r = await get(f);

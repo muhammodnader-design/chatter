@@ -34,6 +34,8 @@ const SCHEMA = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     pass TEXT NOT NULL,
+    bio TEXT NOT NULL DEFAULT '',
+    hue INTEGER,
     created_at INTEGER NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS sessions (
@@ -127,6 +129,10 @@ function ensureReady() {
           await run(`ALTER TABLE messages ADD COLUMN ${col} ${type}`);
         }
       }
+      const ucols = await all('PRAGMA table_info(users)');
+      const unames = ucols.map((c) => c.name);
+      if (!unames.includes('bio')) await run(`ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''`);
+      if (!unames.includes('hue')) await run('ALTER TABLE users ADD COLUMN hue INTEGER');
     })();
   }
   return readyPromise;
@@ -234,16 +240,20 @@ async function addMessage(room, username, text, file = null, senderId = null) {
 }
 
 async function recentMessages(room, limit = 100) {
-  return all('SELECT id, username, text, file, sender_id, edited_at, created_at FROM messages WHERE room = ? ORDER BY id DESC LIMIT ?', [room, limit]).then(
-    (rows) => rows.reverse()
-  );
+  return all(
+    `SELECT m.id, m.username, m.text, m.file, m.sender_id, m.edited_at, m.created_at, u.hue AS hue
+     FROM messages m LEFT JOIN users u ON u.id = m.sender_id
+     WHERE m.room = ? ORDER BY m.id DESC LIMIT ?`,
+    [room, limit]
+  ).then((rows) => rows.reverse());
 }
 
 async function messagesSince(room, sinceId, sinceTime, limit = 100) {
   return all(
-    `SELECT id, username, text, file, edited_at, created_at FROM messages
-     WHERE room = ? AND (id > ? OR (edited_at IS NOT NULL AND edited_at > ?))
-     ORDER BY id ASC LIMIT ?`,
+    `SELECT m.id, m.username, m.text, m.file, m.edited_at, m.created_at, u.hue AS hue
+     FROM messages m LEFT JOIN users u ON u.id = m.sender_id
+     WHERE m.room = ? AND (m.id > ? OR (m.edited_at IS NOT NULL AND m.edited_at > ?))
+     ORDER BY m.id ASC LIMIT ?`,
     [room, sinceId, sinceTime, limit]
   );
 }
@@ -282,6 +292,28 @@ async function touchPresence(room, username, accountId, typing = null) {
 async function listMembers(room, maxAge = 45000) {
   const rows = await all('SELECT username FROM presence WHERE room = ? AND updated_at > ? ORDER BY username COLLATE NOCASE', [room, Date.now() - maxAge]);
   return rows.map((r) => r.username);
+}
+
+async function listMemberProfiles(room, maxAge = 45000) {
+  return all(
+    `SELECT p.username, u.hue AS hue FROM presence p LEFT JOIN users u ON u.id = p.account_id
+     WHERE p.room = ? AND p.updated_at > ? ORDER BY p.username COLLATE NOCASE`,
+    [room, Date.now() - maxAge]
+  );
+}
+
+async function getUserProfile(username) {
+  return get('SELECT username, bio, hue FROM users WHERE username = ?', [username]);
+}
+
+async function updateProfile(username, bio, hue) {
+  await run('UPDATE users SET bio = ?, hue = ? WHERE username = ?', [bio, hue, username]);
+}
+
+async function getUserHue(accountId) {
+  if (accountId == null) return null;
+  const row = await get('SELECT hue FROM users WHERE id = ?', [accountId]);
+  return row && row.hue != null ? Number(row.hue) : null;
 }
 
 async function listTyping(room, maxAge = 8000) {
@@ -328,6 +360,10 @@ module.exports = {
   deletesSince,
   touchPresence,
   listMembers,
+  listMemberProfiles,
+  getUserProfile,
+  updateProfile,
+  getUserHue,
   listTyping,
   getPresence,
   removePresence,

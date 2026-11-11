@@ -33,8 +33,8 @@ function systemMessage(room, text) {
 
 function emitPresence(room) {
   actions
-    .members(room)
-    .then((list) => io.to(room).emit('presence', { room, users: list }))
+    .memberProfiles(room)
+    .then((p) => io.to(room).emit('presence', { room, users: p.users, hues: p.hues }))
     .catch(() => {});
 }
 
@@ -86,6 +86,16 @@ io.on('connection', (socket) => {
     wrapped(async (payload, cb) =>
       respond(cb, await actions.changePassword({ ...(payload || {}), ip: socket.handshake.address }))
     )
+  );
+
+  socket.on(
+    'get-profile',
+    wrapped(async (payload, cb) => respond(cb, await actions.getProfile(payload || {})))
+  );
+
+  socket.on(
+    'update-profile',
+    wrapped(async (payload, cb) => respond(cb, await actions.updateProfile(payload || {})))
   );
 
   socket.on(

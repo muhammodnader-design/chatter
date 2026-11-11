@@ -124,6 +124,50 @@
     </main>
   </section>
 
+  <!-- Profile modal -->
+  <div id="profile-overlay" class="settings-overlay" hidden>
+    <div class="settings-panel profile-panel" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+      <div class="settings-head">
+        <h3 id="profile-title">Profile</h3>
+        <button id="profile-close" class="icon-btn" type="button" title="Close" aria-label="Close">&times;</button>
+      </div>
+      <div class="settings-body">
+        <div class="profile-hero">
+          <span id="profile-avatar" class="avatar profile-avatar">?</span>
+          <div>
+            <div id="profile-name" class="profile-name">—</div>
+            <div id="profile-kind" class="subtle"></div>
+          </div>
+        </div>
+
+        <p id="profile-bio" class="profile-bio empty">No bio yet.</p>
+
+        <p id="profile-guest-note" class="subtle set-note" hidden>Sign up for an account to customize your profile.</p>
+
+        <div id="profile-edit" hidden>
+          <div class="set-title">Edit profile</div>
+          <div class="set-fields">
+            <label for="profile-bio-input">Bio</label>
+            <textarea id="profile-bio-input" rows="3" maxlength="120" placeholder="Tell people about yourself..."></textarea>
+          </div>
+          <div class="set-row profile-color-row">
+            <span>Avatar color</span>
+            <div class="profile-color">
+              <input type="range" id="profile-hue" min="0" max="359" step="1" aria-label="Avatar color" />
+              <span id="profile-hue-preview" class="profile-hue-preview" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="set-actions">
+            <button id="profile-save" class="btn-small" type="button">Save profile</button>
+          </div>
+          <p id="profile-msg" class="set-msg" role="status"></p>
+        </div>
+
+        <button id="profile-dm" class="btn-small profile-dm" type="button" hidden>Message</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings modal -->
   <div id="settings-overlay" class="settings-overlay" hidden>
     <div class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">

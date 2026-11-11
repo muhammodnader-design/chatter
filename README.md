@@ -29,6 +29,7 @@ Chatter is a modern chat product for communities, teams and friends: rooms, dire
 
 ### Accounts
 - Register or log in with scrypt-hashed passwords — or stay anonymous as a guest
+- Profile cards — click any member to view their bio and avatar color; edit your own bio and color
 - Automatic session restore, password change from the settings tab
 
 ### Experience
@@ -54,13 +55,13 @@ On Windows: `run.bat`. Requires Node 22+ (uses the built-in `node:sqlite`). Data
 
 ## Quality
 
-131 automated checks across four suites — run them with `test.bat`:
+146 automated checks across four suites — run them with `test.bat`:
 
 | Suite | Coverage |
 |---|---|
-| `test/e2e.js` | Full socket flow + REST API parity (100) |
-| `test/poll-transport.js` | Polling client against a live server (18) |
-| `test/smoke.js` | Static assets + capabilities endpoint (10) |
+| `test/e2e.js` | Full socket flow + REST API parity (110) |
+| `test/poll-transport.js` | Polling client against a live server (22) |
+| `test/smoke.js` | Static assets + capabilities endpoint (11) |
 | `test/vercel-mode.js` | Serverless mode detection (3) |
 
 ## How it works
