@@ -4,6 +4,7 @@ const path = require('path');
 const { Server } = require('socket.io');
 const db = require('./db');
 const actions = require('./lib/actions');
+const rateLimit = require('./lib/rateLimit');
 const { handleApi } = require('./lib/httpApi');
 
 const app = express();
@@ -58,12 +59,16 @@ function splitArgs(a, b) {
 io.on('connection', (socket) => {
   socket.on(
     'register',
-    wrapped(async (payload, cb) => respond(cb, await actions.register(payload || {})))
+    wrapped(async (payload, cb) =>
+      respond(cb, await actions.register({ ...(payload || {}), ip: socket.handshake.address }))
+    )
   );
 
   socket.on(
     'login',
-    wrapped(async (payload, cb) => respond(cb, await actions.login(payload || {})))
+    wrapped(async (payload, cb) =>
+      respond(cb, await actions.login({ ...(payload || {}), ip: socket.handshake.address }))
+    )
   );
 
   socket.on(
@@ -78,7 +83,9 @@ io.on('connection', (socket) => {
 
   socket.on(
     'change-password',
-    wrapped(async (payload, cb) => respond(cb, await actions.changePassword(payload || {})))
+    wrapped(async (payload, cb) =>
+      respond(cb, await actions.changePassword({ ...(payload || {}), ip: socket.handshake.address }))
+    )
   );
 
   socket.on(
@@ -163,6 +170,7 @@ io.on('connection', (socket) => {
     wrapped(async (payload) => {
       const user = users.get(socket.id);
       if (!user) return;
+      if (!rateLimit.allow(`msg:s:${socket.id}`, 15, 5000)) return;
       const data =
         typeof payload === 'string'
           ? { text: payload }

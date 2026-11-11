@@ -1,105 +1,91 @@
 # Chatter
 
-A lightweight realtime chat app: rooms, direct messages, accounts, file sharing, edit/delete, presence and typing indicators. Works two ways from one codebase:
+**Realtime chat that just works — open the link, pick a name, start talking.**
 
-- **Locally** — Express + Socket.io + SQLite (`chat.db`): instant realtime, zero config.
-- **On Vercel** — serverless REST API + polling + Turso (cloud SQLite) + Vercel Blob: deployable free-tier, no WebSockets needed.
+**Live app → [chat-app-lovat-tau-34.vercel.app](https://chat-app-lovat-tau-34.vercel.app)**
 
-The frontend detects the mode automatically via `GET /api/capabilities` and picks the right transport (`public/transport.js`) — everything else is shared.
+Chatter is a modern chat product for communities, teams and friends: rooms, direct messages, file sharing, presence and typing indicators — wrapped in a clean, responsive interface that runs in any modern browser, on desktop and phone. No ads. No tracking. Nothing to install.
+
+## Why Chatter
+
+- **Instant onboarding** — join as a guest in one click, or create an account in seconds. Sessions are remembered, so you come back to where you left off.
+- **Truly realtime** — messages, presence and typing indicators appear instantly. The transport adapts automatically: WebSockets where available, efficient polling on serverless — you never think about it.
+- **Rich messages** — images render inline, files appear as download chips, and everything can be edited or deleted with an `(edited)` tag.
+- **Private by design** — passwords are salted and hashed with scrypt; direct messages are enforced server-side, so nobody can read a DM they're not part of; zero third-party trackers.
+- **Yours to customize** — dark/light theme, text size, notification sound, enter-to-send, join/leave filters — all in the settings tab.
+- **Protected from abuse** — built-in rate limiting on message floods and login brute force.
 
 ## Features
 
-- Public rooms (create by joining) + direct messages (accounts only)
-- Register/login with hashed passwords, guest mode, session auto-restore
-- Realtime messages, presence, typing indicators (events locally, polling on Vercel)
-- File attachments: images inline, other files as chips (4 MB cap, extension whitelist)
-- Edit/delete your own messages, `(edited)` tag
-- Settings tab: dark/light theme, text size, enter-to-send, join/leave messages, sound on new messages, change password, logout
-- Message history survives restarts (SQLite/Turso)
-- Responsive UI: mobile drawer, safe-area insets, 44px touch targets
+### Messaging
+- Public rooms — create one simply by joining its name
+- Direct messages between accounts, private by server enforcement
+- Realtime delivery with live presence list and typing indicators
+- Edit and delete your own messages; full history survives restarts
 
-## Quick start (local)
+### Sharing
+- Attach files up to 4 MB — images inline, other types as named chips
+- Extension whitelist and storage sandboxing (no path traversal)
 
-```
-run.bat            # install deps if needed, start server, open http://localhost:3000
-run.bat --no-browser
-```
+### Accounts
+- Register or log in with scrypt-hashed passwords — or stay anonymous as a guest
+- Automatic session restore, password change from the settings tab
 
-or manually:
+### Experience
+- Responsive layout: mobile drawer, safe-area insets, 44px touch targets
+- Settings: theme, text size, enter-to-send, system messages, sound on new messages
+- Keyboard-friendly with labelled controls throughout
 
-```
+## Getting started
+
+### Use Chatter
+Open **[chat-app-lovat-tau-34.vercel.app](https://chat-app-lovat-tau-34.vercel.app)** — that's it. Nothing to install.
+
+### Run it yourself
+
+```bash
+git clone https://github.com/muhammodnader-design/chatter.git
+cd chatter
 npm install
-npm start          # node server.js → http://localhost:3000
+npm start        # → http://localhost:3000
 ```
 
-Requires Node 22+ (uses the built-in `node:sqlite`). Data lives in `chat.db`; uploads in `uploads/`.
+On Windows: `run.bat`. Requires Node 22+ (uses the built-in `node:sqlite`). Data lives in `chat.db`, uploads in `uploads/`.
 
-## Tests
+## Quality
 
-```
-test.bat
-```
+131 automated checks across four suites — run them with `test.bat`:
 
-Runs four suites (128 checks):
-
-| Suite | What it covers |
+| Suite | Coverage |
 |---|---|
-| `test/e2e.js` | Full socket flow + REST API parity (97) |
+| `test/e2e.js` | Full socket flow + REST API parity (100) |
 | `test/poll-transport.js` | Polling client against a live server (18) |
 | `test/smoke.js` | Static assets + capabilities endpoint (10) |
-| `test/vercel-mode.js` | `VERCEL=1` mode detection (3) |
+| `test/vercel-mode.js` | Serverless mode detection (3) |
 
-## Deploying to Vercel
+## How it works
 
-### 1. Create a Turso database (free tier is fine)
+One codebase, two transports. The client asks `GET /api/capabilities` and picks the right one automatically (`public/transport.js`):
+
+- **Self-hosted** — Express + Socket.io + SQLite: instant WebSockets, zero config.
+- **Serverless (Vercel)** — a single function (`api/index.js`), REST + 2s polling, Turso/libSQL for cloud persistence, Vercel Blob for uploads.
+
+Message payloads are identical in both modes, and the parity is covered by tests. The frontend is dependency-free vanilla JS.
+
+## Configuration (self-hosting)
 
 ```
-turso db create chatter
-turso db tokens create chatter
+vercel --prod     # deploys as-is — add the env vars below for persistent data
 ```
 
-Note the two values it prints: `TURSO_DATABASE_URL` (looks like `libsql://chatter-xxx.turso.io`) and `TURSO_AUTH_TOKEN`.
-
-### 2. Enable Vercel Blob
-
-In the Vercel dashboard: your project → **Storage** → **Blob** → create a store. This auto-sets `BLOB_READ_WRITE_TOKEN` in your project env.
-
-### 3. Set environment variables
-
-Project → **Settings → Environment Variables**:
-
-| Variable | Value |
+| Variable | Purpose |
 |---|---|
-| `TURSO_DATABASE_URL` | from step 1 |
-| `TURSO_AUTH_TOKEN` | from step 1 |
+| `PORT` | Server port (local, default 3000) |
+| `CHAT_DB` / `UPLOAD_DIR` | Local SQLite path / uploads folder |
+| `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` | Cloud database for serverless persistence |
+| `BLOB_READ_WRITE_TOKEN` | File storage (set automatically by Vercel Blob) |
 
-(`BLOB_READ_WRITE_TOKEN` is set automatically by step 2.)
-
-### 4. Deploy
-
-```
-vercel --prod        # or just: deploy.bat
-```
-
-That's it. Without the env vars it still deploys and runs, but falls back to a non-persistent SQLite DB with a console warning — set both for a real deployment.
-
-### How the Vercel version works
-
-- All API routes are served by one serverless function (`api/index.js` → `lib/httpApi.js`) via the rewrite in `vercel.json`.
-- The client polls `GET /api/poll?...` every 2s for new/edited messages, deletions, members and typing state.
-- Uploads go to `POST /api/upload` and are stored in Vercel Blob; in local mode they're written to `uploads/` and served statically.
-- Presence lives in a `presence` table with heartbeats (members refresh every 45s, typing expires after 8s).
-
-## Environment variables
-
-| Variable | Local | Vercel | Purpose |
-|---|---|---|---|
-| `PORT` | optional (default 3000) | — | Server port |
-| `CHAT_DB` | optional | — | SQLite file path (default `chat.db`) |
-| `UPLOAD_DIR` | optional | — | Upload folder (default `uploads/`) |
-| `TURSO_DATABASE_URL` / `LIBSQL_URL` | — | required for persistence | Cloud DB URL |
-| `TURSO_AUTH_TOKEN` / `LIBSQL_AUTH_TOKEN` | — | required for persistence | Cloud DB token |
-| `BLOB_READ_WRITE_TOKEN` | — | set by Vercel Blob | File storage |
+Without Turso the serverless deployment runs on ephemeral storage — fine for trying it out; set the env vars for production data.
 
 ## Project layout
 
@@ -107,6 +93,7 @@ That's it. Without the env vars it still deploys and runs, but falls back to a n
 server.js          Express + Socket.io layer (thin, local mode)
 db.js              SQLite (local) / libSQL-Turso (remote) driver
 lib/actions.js     Shared business logic (auth, rooms, DMs, messages, poll)
+lib/rateLimit.js   Flood + brute-force protection
 lib/httpApi.js     HTTP API used by both Express and Vercel
 api/index.js       Vercel serverless entry
 public/            Frontend (vanilla JS; transport.js picks socket vs polling)
@@ -115,3 +102,7 @@ run.bat            Start full stack locally
 test.bat           Run all test suites
 deploy.bat         vercel --prod
 ```
+
+---
+
+**[Source on GitHub](https://github.com/muhammodnader-design/chatter)** — issues and pull requests welcome.

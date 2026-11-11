@@ -477,6 +477,43 @@ async function main() {
   ).json();
   check('REST login after password change works', restCpLogin.ok === true);
 
+  /* --- Rate limiting: message flood --- */
+  await emitAck(a2, 'join', { token: reg1.token, room: 'General' });
+  const floodSeen = [];
+  const onFlood = (m) => {
+    if (typeof m.id === 'number' && typeof m.text === 'string' && m.text.startsWith('flood ')) floodSeen.push(m.id);
+  };
+  b2.on('message', onFlood);
+  for (let i = 0; i < 20; i++) a2.emit('message', `flood ${i}`);
+  await new Promise((r) => setTimeout(r, 800));
+  b2.off('message', onFlood);
+  check('socket message flood is rate limited', floodSeen.length > 0 && floodSeen.length <= 15);
+
+  const floodStatuses = await Promise.all(
+    Array.from({ length: 20 }, (_, i) =>
+      fetch(`${URL}/api/message`, {
+        method: 'POST',
+        headers: hdrs,
+        body: JSON.stringify({ token: restReg.token, room: 'General', text: `rest flood ${i}` })
+      })
+        .then((r) => r.status)
+        .catch(() => 0)
+    )
+  );
+  check('REST message flood returns 429', floodStatuses.includes(429) && floodStatuses.some((s) => s === 200));
+
+  /* --- Rate limiting: auth brute force --- */
+  let lockoutSeen = false;
+  for (let i = 0; i < 10 && !lockoutSeen; i++) {
+    const attempt = await fetch(`${URL}/api/auth`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({ action: 'login', username: 'Patty', password: `guess-${i}-wrong` })
+    }).then((r) => r.json());
+    if (attempt.ok === false && attempt.error === 'Too many attempts. Try again later.') lockoutSeen = true;
+  }
+  check('auth brute force is locked out', lockoutSeen === true);
+
   await stopServer();
   cleanup();
 
